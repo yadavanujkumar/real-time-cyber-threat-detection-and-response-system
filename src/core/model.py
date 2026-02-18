@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from typing import Optional
+import os
 from sqlalchemy import (
     Column,
     String,
@@ -112,9 +113,25 @@ Index("ix_alerts_status", Alert.status)
 Index("ix_alerts_timestamp", Alert.timestamp)
 
 # Database Configuration
-DATABASE_URL = "postgresql://user:password@localhost:5432/cyber_threat_db"
+# Use environment variable for database URL (never hardcode credentials!)
+DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://dev_user:dev_password@localhost:5432/dev_db"  # Default for development only
+)
 
-engine = create_engine(DATABASE_URL, pool_size=10, max_overflow=20, pool_timeout=30)
+# Validate DATABASE_URL in production
+if os.getenv("ENVIRONMENT") == "production" and "dev_user:dev_password" in DATABASE_URL:
+    raise ValueError("DATABASE_URL must be properly configured in production environment!")
+
+# Create engine with connection pooling and best practices
+engine = create_engine(
+    DATABASE_URL,
+    pool_size=10,
+    max_overflow=20,
+    pool_timeout=30,
+    pool_pre_ping=True,  # Verify connections before using
+    echo=False,  # Set to True for SQL query logging in development
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 

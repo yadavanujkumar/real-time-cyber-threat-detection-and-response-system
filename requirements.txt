@@ -2,15 +2,18 @@
 # Real-Time Cyber Threat Detection and Response System
 # Production dependencies for Python-based backend
 # Pinned versions for stability and compatibility
-# Last updated: October 2023
+# Last updated: February 2024 (Security patches applied)
 
 # Core dependencies
 Flask==2.3.3                # Lightweight web framework for API and real-time communication
 Flask-Cors==3.1.0           # Cross-Origin Resource Sharing (CORS) support
-gunicorn==20.1.0            # Production-grade WSGI HTTP server
+fastapi==0.109.2            # Modern web framework for building APIs (patched ReDoS vulnerability CVE-2024-24762)
+uvicorn==0.27.1             # ASGI server for FastAPI (updated for compatibility)
+pydantic==2.6.1             # Data validation using Python type hints (updated for compatibility)
+gunicorn==22.0.0            # Production-grade WSGI HTTP server (patched request smuggling vulnerabilities)
 requests==2.31.0            # HTTP requests library for external API calls
-cryptography==41.0.3        # Secure cryptographic operations
-PyJWT==2.7.0                # JSON Web Token (JWT) handling for authentication
+cryptography==46.0.5        # Secure cryptographic operations (patched subgroup attack and NULL pointer vulnerabilities)
+PyJWT==2.8.0                # JSON Web Token (JWT) handling for authentication (updated)
 pandas==2.1.1               # Data manipulation and analysis
 numpy==1.26.0               # Numerical computations and matrix operations
 scikit-learn==1.3.0         # Machine learning algorithms for threat detection
@@ -28,6 +31,8 @@ redis==5.0.0                # Redis client for caching and real-time data
 # Security and validation
 Cerberus==1.3.4             # Data validation library
 pyOpenSSL==23.2.0           # SSL/TLS support for secure communication
+passlib==1.7.4              # Password hashing library with bcrypt support
+bcrypt==4.0.1               # Bcrypt password hashing
 
 # Concurrency and async support
 eventlet==0.33.0            # Concurrency library for real-time systems
@@ -41,7 +46,7 @@ python-dotenv==1.0.0        # Environment variable management
 
 # Advanced threat detection (optional ML dependencies)
 tensorflow==2.13.0          # Deep learning framework for advanced threat detection
-torch==2.0.1                # PyTorch for neural network-based models
+torch==2.6.0                # PyTorch for neural network-based models (patched heap overflow and RCE vulnerabilities)
 
 # Pinning versions for compatibility and stability
 # Ensure all dependencies are tested in production environments
