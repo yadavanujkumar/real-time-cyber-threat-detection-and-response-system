@@ -1,9 +1,9 @@
 # src/api/endpoints.py
 
-from fastapi import FastAPI, HTTPException, Depends, Request, status
+from fastapi import FastAPI, HTTPException, Depends, Request, status, Header
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, ValidationError
+from pydantic import BaseModel, Field, ValidationError, validator
 from typing import List, Optional
 from uuid import UUID, uuid4
 import logging
@@ -11,6 +11,8 @@ import asyncio
 import jwt
 from datetime import datetime, timedelta
 from functools import lru_cache
+import os
+import re
 
 # Initialize FastAPI application
 app = FastAPI(
@@ -40,16 +42,32 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api")
 
-# JWT Secret and Expiry Configuration
-JWT_SECRET = "your-secure-secret-key"
-JWT_ALGORITHM = "HS256"
-JWT_EXPIRY_MINUTES = 60
+# JWT Secret and Expiry Configuration (from environment variables)
+JWT_SECRET = os.getenv("JWT_SECRET", "dev-jwt-secret-CHANGE-IN-PRODUCTION")
+JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
+JWT_EXPIRY_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "60"))
+
+# Validate JWT_SECRET in production
+if os.getenv("ENVIRONMENT") == "production" and JWT_SECRET == "dev-jwt-secret-CHANGE-IN-PRODUCTION":
+    raise ValueError("JWT_SECRET must be set in production environment!")
 
 # Models
 class ThreatDetectionRequest(BaseModel):
-    ip_address: str = Field(..., regex=r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$", description="IPv4 address to analyze")
+    ip_address: str = Field(..., description="IPv4 address to analyze")
     user_agent: Optional[str] = Field(None, max_length=512, description="User agent string of the client")
     timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of the request")
+    
+    @validator("ip_address")
+    def validate_ip_address(cls, v):
+        """Validate IPv4 address format."""
+        ipv4_pattern = r"^(\d{1,3}\.){3}\d{1,3}$"
+        if not re.match(ipv4_pattern, v):
+            raise ValueError("Invalid IPv4 address format")
+        # Validate each octet is 0-255
+        octets = v.split(".")
+        if not all(0 <= int(octet) <= 255 for octet in octets):
+            raise ValueError("IPv4 address octets must be between 0 and 255")
+        return v
 
 class ThreatDetectionResponse(BaseModel):
     request_id: UUID
@@ -93,14 +111,64 @@ async def add_request_id_header(request: Request, call_next):
     return response
 
 # Authentication Dependency
-def get_current_user(token: str = Depends(lambda: "fake_token")):
+def get_current_user(authorization: Optional[str] = Header(None)):
+    """
+    Extract and validate JWT token from Authorization header.
+    
+    Args:
+        authorization: Authorization header value (format: "Bearer <token>")
+    
+    Returns:
+        str: Username from token payload
+        
+    Raises:
+        HTTPException: If token is invalid, expired, or missing
+    """
+    if not authorization:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authorization header missing",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    try:
+        # Extract token from "Bearer <token>" format
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid authentication scheme. Use Bearer token.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authorization header format. Use: Bearer <token>",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
     try:
         payload = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
-        return payload.get("sub")
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid token payload",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        return username
     except jwt.ExpiredSignatureError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired")
-    except jwt.InvalidTokenError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has expired",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    except jwt.InvalidTokenError as e:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=f"Invalid token: {str(e)}",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
 # Business Logic
 async def analyze_threat(ip_address: str, user_agent: Optional[str]) -> dict:
@@ -115,18 +183,39 @@ async def analyze_threat(ip_address: str, user_agent: Optional[str]) -> dict:
 
 # Endpoints
 @app.post("/api/v1/threat-detection", response_model=ThreatDetectionResponse, responses={400: {"model": ErrorResponse}})
-async def detect_threat(request: ThreatDetectionRequest, user: str = Depends(get_current_user)):
+async def detect_threat(
+    threat_request: ThreatDetectionRequest,
+    request: Request,
+    user: str = Depends(get_current_user)
+):
     """
     Endpoint to detect cyber threats based on IP address and user agent.
+    
+    Args:
+        threat_request: Threat detection request payload
+        request: FastAPI request object
+        user: Authenticated username from JWT token
+    
+    Returns:
+        ThreatDetectionResponse: Detection results with threat level and details
+    
+    Raises:
+        ThreatDetectionException: If threat detection fails
     """
     try:
-        logger.info(f"Processing threat detection for IP: {request.ip_address} | User: {user} | Request ID: {request.state.request_id}")
-        result = await analyze_threat(request.ip_address, request.user_agent)
+        request_id = getattr(request.state, "request_id", str(uuid4()))
+        logger.info(
+            f"Processing threat detection for IP: {threat_request.ip_address} | User: {user} | Request ID: {request_id}"
+        )
+        result = await analyze_threat(threat_request.ip_address, threat_request.user_agent)
         return ThreatDetectionResponse(
-            request_id=request.state.request_id,
+            request_id=uuid4(),  # Generate new UUID for response
             threat_level=result["threat_level"],
             details=result["details"],
         )
+    except ValueError as e:
+        logger.error(f"Validation error during threat detection: {str(e)}")
+        raise ThreatDetectionException(code="validation_error", message="Invalid input data", details=str(e))
     except Exception as e:
         logger.exception(f"Unexpected error during threat detection: {str(e)}")
         raise ThreatDetectionException(code="internal_error", message="An unexpected error occurred", details=str(e))
