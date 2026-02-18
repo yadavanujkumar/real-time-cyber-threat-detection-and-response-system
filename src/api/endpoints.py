@@ -9,7 +9,7 @@ from uuid import UUID, uuid4
 import logging
 import asyncio
 import jwt
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from functools import lru_cache
 import os
 import re
@@ -76,7 +76,7 @@ if os.getenv("ENVIRONMENT") == "production" and JWT_SECRET == "dev-jwt-secret-CH
 class ThreatDetectionRequest(BaseModel):
     ip_address: str = Field(..., description="IPv4 address to analyze")
     user_agent: Optional[str] = Field(None, max_length=512, description="User agent string of the client")
-    timestamp: datetime = Field(default_factory=datetime.utcnow, description="Timestamp of the request")
+    timestamp: datetime = Field(default_factory=lambda: datetime.now(timezone.utc), description="Timestamp of the request")
     
     @validator("ip_address")
     def validate_ip_address(cls, v):
@@ -205,7 +205,7 @@ async def analyze_threat(ip_address: str, user_agent: Optional[str]) -> dict:
 # Endpoints
 @app.post("/api/v1/threat-detection", response_model=ThreatDetectionResponse, responses={400: {"model": ErrorResponse}})
 async def detect_threat(
-    threat_request: ThreatDetectionRequest,
+    detection_request: ThreatDetectionRequest,
     request: Request,
     user: str = Depends(get_current_user)
 ):
@@ -213,7 +213,7 @@ async def detect_threat(
     Endpoint to detect cyber threats based on IP address and user agent.
     
     Args:
-        threat_request: Threat detection request payload
+        detection_request: Threat detection request payload
         request: FastAPI request object
         user: Authenticated username from JWT token
     
@@ -226,9 +226,9 @@ async def detect_threat(
     try:
         request_id = getattr(request.state, "request_id", str(uuid4()))
         logger.info(
-            f"Processing threat detection for IP: {threat_request.ip_address} | User: {user} | Request ID: {request_id}"
+            f"Processing threat detection for IP: {detection_request.ip_address} | User: {user} | Request ID: {request_id}"
         )
-        result = await analyze_threat(threat_request.ip_address, threat_request.user_agent)
+        result = await analyze_threat(detection_request.ip_address, detection_request.user_agent)
         return ThreatDetectionResponse(
             request_id=uuid4(),  # Generate new UUID for response
             threat_level=result["threat_level"],
@@ -246,14 +246,14 @@ async def health_check():
     """
     Health check endpoint to verify service availability.
     """
-    return {"status": "healthy", "timestamp": datetime.utcnow()}
+    return {"status": "healthy", "timestamp": datetime.now(timezone.utc)}
 
 @app.get("/api/v1/readiness", status_code=status.HTTP_200_OK)
 async def readiness_check():
     """
     Readiness check endpoint to verify service readiness.
     """
-    return {"status": "ready", "timestamp": datetime.utcnow()}
+    return {"status": "ready", "timestamp": datetime.now(timezone.utc)}
 
 # Additional Models for new endpoints
 class ThreatStatistics(BaseModel):
@@ -299,7 +299,7 @@ async def get_statistics(user: str = Depends(get_current_user)):
             "critical": 34
         },
         recent_threats=45,
-        timestamp=datetime.utcnow()
+        timestamp=datetime.now(timezone.utc)
     )
 
 @app.post("/api/v1/auth/token")
@@ -324,7 +324,7 @@ async def generate_token(username: str, password: str):
         "email": f"{username}@example.com"
     }
     expires = timedelta(minutes=JWT_EXPIRY_MINUTES)
-    expire_time = datetime.utcnow() + expires
+    expire_time = datetime.now(timezone.utc) + expires
     token_data["exp"] = expire_time
     
     token = jwt.encode(token_data, JWT_SECRET, algorithm=JWT_ALGORITHM)

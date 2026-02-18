@@ -58,8 +58,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture diagr
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yadavanujkumar/title-real-time-cyber-threat-detection-and-response-system.git
-   cd title-real-time-cyber-threat-detection-and-response-system
+   git clone https://github.com/yadavanujkumar/real-time-cyber-threat-detection-and-response-system.git
+   cd real-time-cyber-threat-detection-and-response-system
    ```
 
 2. **Create and activate virtual environment**
@@ -94,8 +94,8 @@ See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for detailed architecture diagr
 
 1. **Clone the repository**
    ```bash
-   git clone https://github.com/yadavanujkumar/title-real-time-cyber-threat-detection-and-response-system.git
-   cd title-real-time-cyber-threat-detection-and-response-system
+   git clone https://github.com/yadavanujkumar/real-time-cyber-threat-detection-and-response-system.git
+   cd real-time-cyber-threat-detection-and-response-system
    ```
 
 2. **Configure environment**
