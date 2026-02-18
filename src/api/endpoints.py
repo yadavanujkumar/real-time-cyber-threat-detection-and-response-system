@@ -14,25 +14,46 @@ from functools import lru_cache
 import os
 import re
 
+# Import custom middleware
+from src.api.middleware import (
+    RateLimitMiddleware,
+    SecurityHeadersMiddleware,
+    RequestLoggingMiddleware
+)
+
 # Initialize FastAPI application
 app = FastAPI(
     title="Real-Time Cyber Threat Detection and Response System",
     version="1.0.0",
     description="Enterprise-grade API for real-time cyber threat detection and response.",
+    docs_url="/docs",
+    redoc_url="/redoc",
 )
 
-# CORS Configuration
-origins = [
+# Get CORS origins from environment or use defaults
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+origins = cors_origins_env.split(",") if cors_origins_env else [
     "http://localhost",
     "http://localhost:3000",
-    "https://your-production-domain.com",
+    "http://localhost:8000",
 ]
+
+# CORS Configuration
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+# Add custom middleware (order matters - last added is executed first)
+app.add_middleware(SecurityHeadersMiddleware)
+app.add_middleware(RequestLoggingMiddleware)
+app.add_middleware(
+    RateLimitMiddleware,
+    requests_per_minute=int(os.getenv("RATE_LIMIT_PER_MINUTE", "100")),
+    requests_per_hour=int(os.getenv("RATE_LIMIT_PER_HOUR", "1000"))
 )
 
 # Logging Configuration
@@ -233,6 +254,87 @@ async def readiness_check():
     Readiness check endpoint to verify service readiness.
     """
     return {"status": "ready", "timestamp": datetime.utcnow()}
+
+# Additional Models for new endpoints
+class ThreatStatistics(BaseModel):
+    total_threats_detected: int
+    threats_by_level: dict
+    recent_threats: int
+    timestamp: datetime
+
+class ApiInfo(BaseModel):
+    name: str
+    version: str
+    environment: str
+    endpoints: int
+    uptime: float
+
+@app.get("/api/v1/info", response_model=ApiInfo, status_code=status.HTTP_200_OK)
+async def api_info():
+    """
+    Get API information and metadata.
+    """
+    return ApiInfo(
+        name="Real-Time Cyber Threat Detection and Response System",
+        version="1.0.0",
+        environment=os.getenv("ENVIRONMENT", "development"),
+        endpoints=len(app.routes),
+        uptime=0.0  # Would be calculated from start time in production
+    )
+
+@app.get("/api/v1/statistics", response_model=ThreatStatistics, status_code=status.HTTP_200_OK)
+async def get_statistics(user: str = Depends(get_current_user)):
+    """
+    Get threat detection statistics.
+    
+    Requires authentication.
+    """
+    # In production, this would query the database
+    return ThreatStatistics(
+        total_threats_detected=1234,
+        threats_by_level={
+            "low": 500,
+            "medium": 400,
+            "high": 300,
+            "critical": 34
+        },
+        recent_threats=45,
+        timestamp=datetime.utcnow()
+    )
+
+@app.post("/api/v1/auth/token")
+async def generate_token(username: str, password: str):
+    """
+    Generate a JWT token for authentication.
+    
+    This is a simplified endpoint for demo purposes.
+    In production, implement proper user authentication against database.
+    """
+    # In production: verify username and password against database
+    # For demo: just generate a token
+    if not username or not password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username and password are required"
+        )
+    
+    # Create token
+    token_data = {
+        "sub": username,
+        "email": f"{username}@example.com"
+    }
+    expires = timedelta(minutes=JWT_EXPIRY_MINUTES)
+    expire_time = datetime.utcnow() + expires
+    token_data["exp"] = expire_time
+    
+    token = jwt.encode(token_data, JWT_SECRET, algorithm=JWT_ALGORITHM)
+    
+    return {
+        "access_token": token,
+        "token_type": "bearer",
+        "expires_in": JWT_EXPIRY_MINUTES * 60,
+        "expires_at": expire_time.isoformat()
+    }
 
 # Graceful Shutdown
 @app.on_event("shutdown")
