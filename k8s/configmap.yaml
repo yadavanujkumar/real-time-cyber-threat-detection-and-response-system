@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cyber-threat-detection-config
+  namespace: production
+  labels:
+    app: cyber-threat-detection
+    environment: production
+data:
+  # Application settings
+  APP_NAME: "Real-Time Cyber Threat Detection and Response System" # Name of the application
+  APP_ENV: "production" # Current environment (dev, staging, prod)
+  APP_DEBUG: "false" # Debug mode (should be false in production)
+
+  # Database settings
+  DB_HOST: "${DB_HOST}" # Database host (use environment variable for security)
+  DB_PORT: "5432" # Default PostgreSQL port
+  DB_NAME: "${DB_NAME}" # Database name (use environment variable for security)
+  DB_USER: "${DB_USER}" # Database username (use environment variable for security)
+  DB_PASSWORD: "${DB_PASSWORD}" # Database password (use environment variable for security)
+  DB_CONNECTION_TIMEOUT: "30" # Connection timeout in seconds
+  DB_POOL_SIZE: "10" # Maximum number of database connections in the pool
+
+  # Security settings
+  JWT_SECRET: "${JWT_SECRET}" # Secret key for JWT token signing (use environment variable for security)
+  ENCRYPTION_KEY: "${ENCRYPTION_KEY}" # Encryption key for sensitive data (use environment variable for security)
+  RATE_LIMIT: "100" # Maximum number of requests per minute per IP
+  ALLOWED_ORIGINS: "https://example.com,https://anotherdomain.com" # CORS allowed origins
+
+  # Performance settings
+  WORKER_COUNT: "4" # Number of worker threads for the application
+  MAX_REQUEST_TIMEOUT: "60" # Maximum request timeout in seconds
+  CACHE_TTL: "300" # Cache time-to-live in seconds
+  LOG_LEVEL: "INFO" # Logging level (DEBUG, INFO, WARN, ERROR)
+
+  # Monitoring and observability
+  METRICS_ENABLED: "true" # Enable metrics collection
+  METRICS_PORT: "9100" # Port for metrics endpoint
+  LOG_FORMAT: "json" # Log format (json or plain text)
+  TRACE_ENABLED: "true" # Enable distributed tracing
+  TRACE_SAMPLE_RATE: "0.1" # Sampling rate for tracing (10%)
+
+  # External services
+  MESSAGE_QUEUE_URL: "${MESSAGE_QUEUE_URL}" # URL for message queue (e.g., RabbitMQ, Kafka)
+  MESSAGE_QUEUE_RETRY_COUNT: "5" # Number of retries for message queue operations
+  MESSAGE_QUEUE_RETRY_DELAY: "2000" # Delay between retries in milliseconds
+
+  # Resource limits
+  CPU_LIMIT: "500m" # Maximum CPU usage for the application
+  MEMORY_LIMIT: "512Mi" # Maximum memory usage for the application
+  CPU_REQUEST: "250m" # Minimum CPU request for the application
+  MEMORY_REQUEST: "256Mi" # Minimum memory request for the application
+
+  # Example environment-specific overrides
+  # Uncomment and modify these for other environments
+  # APP_ENV: "staging"
+  # DB_HOST: "staging-db.example.com"
+  # APP_DEBUG: "true"
+  # RATE_LIMIT: "200"
+
+  # Notes:
+  # - Sensitive values like DB_PASSWORD, JWT_SECRET, and ENCRYPTION_KEY must be provided as environment variables.
+  # - Ensure secrets are managed securely using Kubernetes Secrets or a secret management tool (e.g., HashiCorp Vault).
+  # - Adjust resource limits and performance settings based on the environment and expected workload.

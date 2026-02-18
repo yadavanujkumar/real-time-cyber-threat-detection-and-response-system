@@ -1,0 +1,47 @@
+# requirements.txt
+# Real-Time Cyber Threat Detection and Response System
+# Production dependencies for Python-based backend
+# Pinned versions for stability and compatibility
+# Last updated: October 2023
+
+# Core dependencies
+Flask==2.3.3                # Lightweight web framework for API and real-time communication
+Flask-Cors==3.1.0           # Cross-Origin Resource Sharing (CORS) support
+gunicorn==20.1.0            # Production-grade WSGI HTTP server
+requests==2.31.0            # HTTP requests library for external API calls
+cryptography==41.0.3        # Secure cryptographic operations
+PyJWT==2.7.0                # JSON Web Token (JWT) handling for authentication
+pandas==2.1.1               # Data manipulation and analysis
+numpy==1.26.0               # Numerical computations and matrix operations
+scikit-learn==1.3.0         # Machine learning algorithms for threat detection
+joblib==1.4.0               # Efficient serialization and parallelism for ML models
+
+# Logging and monitoring
+structlog==23.2.0           # Structured logging for production systems
+prometheus-client==0.16.0   # Metrics collection and monitoring
+
+# Database and caching
+SQLAlchemy==2.1.0           # Database ORM for relational data
+psycopg2-binary==2.9.7      # PostgreSQL database adapter
+redis==5.0.0                # Redis client for caching and real-time data
+
+# Security and validation
+Cerberus==1.3.4             # Data validation library
+pyOpenSSL==23.2.0           # SSL/TLS support for secure communication
+
+# Concurrency and async support
+eventlet==0.33.0            # Concurrency library for real-time systems
+gevent==23.9.0              # Asynchronous networking library
+
+# Docker integration
+docker==6.1.3               # Docker SDK for Python to manage containers
+
+# Production configuration management
+python-dotenv==1.0.0        # Environment variable management
+
+# Advanced threat detection (optional ML dependencies)
+tensorflow==2.13.0          # Deep learning framework for advanced threat detection
+torch==2.0.1                # PyTorch for neural network-based models
+
+# Pinning versions for compatibility and stability
+# Ensure all dependencies are tested in production environments

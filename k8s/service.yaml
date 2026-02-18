@@ -1,0 +1,90 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyber-threat-detection-service # Name of the service
+  namespace: production # Namespace for environment separation (use 'dev', 'staging', or 'production')
+  labels:
+    app: cyber-threat-detection # Label to identify the app
+    environment: production # Environment label for clarity
+spec:
+  type: LoadBalancer # Service type: ClusterIP (default), NodePort, or LoadBalancer
+  selector:
+    app: cyber-threat-detection # Must match the labels defined in the Deployment
+  ports:
+    - name: http # Name of the port for clarity
+      protocol: TCP # Protocol used (TCP/UDP)
+      port: 80 # Port exposed by the service
+      targetPort: 8080 # Port on the container where the app is running
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 8443
+  sessionAffinity: None # No session affinity; can be set to "ClientIP" if sticky sessions are required
+  externalTrafficPolicy: Local # Ensures client IP is preserved; set to "Cluster" for better performance in some cases
+  ipFamilies:
+    - IPv4 # Use IPv4; can add IPv6 if dual-stack is required
+  healthCheckNodePort: 30001 # Optional: Specify a health check node port for LoadBalancer
+
+---
+# Example configuration for development environment
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyber-threat-detection-service-dev
+  namespace: dev
+  labels:
+    app: cyber-threat-detection
+    environment: dev
+spec:
+  type: ClusterIP # Use ClusterIP for internal-only services in development
+  selector:
+    app: cyber-threat-detection
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 8443
+  sessionAffinity: None
+  ipFamilies:
+    - IPv4
+
+---
+# Example configuration for staging environment
+apiVersion: v1
+kind: Service
+metadata:
+  name: cyber-threat-detection-service-staging
+  namespace: staging
+  labels:
+    app: cyber-threat-detection
+    environment: staging
+spec:
+  type: LoadBalancer
+  selector:
+    app: cyber-threat-detection
+  ports:
+    - name: http
+      protocol: TCP
+      port: 80
+      targetPort: 8080
+    - name: https
+      protocol: TCP
+      port: 443
+      targetPort: 8443
+  sessionAffinity: None
+  externalTrafficPolicy: Local
+  ipFamilies:
+    - IPv4
+  healthCheckNodePort: 30002
+
+# Notes:
+# 1. Use environment variables to manage sensitive data such as secrets, API keys, and database credentials.
+#    Example: Use Kubernetes Secrets and ConfigMaps to inject environment variables into your containers.
+# 2. Ensure proper RBAC (Role-Based Access Control) is configured for the service account associated with this service.
+# 3. For production, consider enabling network policies to restrict traffic to/from this service.
+# 4. Monitor the service using Kubernetes-native tools like Prometheus, Grafana, or external monitoring solutions.
+# 5. Use resource limits in your Deployment to ensure the application does not consume excessive resources.

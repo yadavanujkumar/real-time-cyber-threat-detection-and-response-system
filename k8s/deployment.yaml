@@ -1,0 +1,124 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cyber-threat-detection
+  namespace: production # Change this to 'staging' or 'development' for other environments
+  labels:
+    app: cyber-threat-detection
+    environment: production # Environment label for separation
+spec:
+  replicas: 3 # Number of replicas for high availability in production
+  selector:
+    matchLabels:
+      app: cyber-threat-detection
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25% # Ensures at least 75% of pods are available during updates
+      maxSurge: 1 # Allows one extra pod to be created during updates
+  template:
+    metadata:
+      labels:
+        app: cyber-threat-detection
+    spec:
+      containers:
+        - name: backend
+          image: your-docker-registry/cyber-threat-backend:latest # Replace with your backend image
+          imagePullPolicy: Always # Always pull the latest image in production
+          ports:
+            - containerPort: 8000 # Backend service port
+          env:
+            - name: ENVIRONMENT
+              value: "production" # Change to "staging" or "development" as needed
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: db-credentials
+                  key: database_url # Database connection string stored in a secret
+            - name: SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: app-secrets
+                  key: secret_key # Application secret key stored in a secret
+          resources:
+            requests:
+              memory: "512Mi" # Minimum memory required
+              cpu: "500m" # Minimum CPU required
+            limits:
+              memory: "1Gi" # Maximum memory allowed
+              cpu: "1" # Maximum CPU allowed
+          readinessProbe:
+            httpGet:
+              path: /health/ready # Endpoint for readiness check
+              port: 8000
+            initialDelaySeconds: 5 # Delay before the first probe
+            periodSeconds: 10 # Frequency of readiness checks
+            timeoutSeconds: 2 # Timeout for each check
+            failureThreshold: 3 # Number of failures before marking pod as not ready
+          livenessProbe:
+            httpGet:
+              path: /health/live # Endpoint for liveness check
+              port: 8000
+            initialDelaySeconds: 10 # Delay before the first probe
+            periodSeconds: 15 # Frequency of liveness checks
+            timeoutSeconds: 2 # Timeout for each check
+            failureThreshold: 3 # Number of failures before restarting the pod
+          startupProbe:
+            httpGet:
+              path: /health/startup # Endpoint for startup check
+              port: 8000
+            initialDelaySeconds: 10 # Delay before the first probe
+            periodSeconds: 10 # Frequency of startup checks
+            timeoutSeconds: 5 # Timeout for each check
+            failureThreshold: 10 # Number of failures before marking pod as failed
+        - name: frontend
+          image: your-docker-registry/cyber-threat-frontend:latest # Replace with your frontend image
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 3000 # Frontend service port
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "250m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: / # Frontend readiness check
+              port: 3000
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: / # Frontend liveness check
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 15
+            timeoutSeconds: 2
+            failureThreshold: 3
+      imagePullSecrets:
+        - name: regcred # Docker registry credentials secret
+      securityContext:
+        runAsUser: 1000 # Non-root user for security
+        runAsGroup: 3000
+        fsGroup: 2000
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 30 # Graceful shutdown period
+      dnsPolicy: ClusterFirst
+      tolerations:
+        - key: "node-role.kubernetes.io/master"
+          operator: "Exists"
+          effect: "NoSchedule" # Allow scheduling on master nodes if necessary
+      affinity:
+        nodeAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            nodeSelectorTerms:
+              - matchExpressions:
+                  - key: kubernetes.io/e2e-az-name
+                    operator: In
+                    values:
+                      - e2e-az1
+                      - e2e-az2
